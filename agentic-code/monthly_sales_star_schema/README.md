@@ -1,86 +1,84 @@
 # ETL Design Document: Monthly Sales Star Schema
 
-## 1. Overview
+## Overview
 
 ### Objective
-Design and implement an ETL process to create a monthly sales star schema data warehouse that enables analysis of sales performance with key performance indicators (KPIs) for sales by item/month and sales by store/month.
+Create a star schema data model for analyzing monthly sales performance with KPIs focused on sales by item/month and sales by store/month. This ETL process will transform normalized transactional data into a dimensional model optimized for analytical queries.
 
 ### Scope
-- Transform normalized source tables (store_sales, item, store, date_dim) into a dimensional star schema
-- Create fact table for monthly aggregated sales data
-- Create dimension tables for item, store, and date
-- Establish proper relationships between fact and dimension tables
-- Enable KPI analysis for monthly sales reporting
+- Extract data from four source tables: store_sales (fact), item, store, and date_dim
+- Transform data into a star schema with one fact table and three dimension tables
+- Aggregate sales data at monthly level
+- Support KPI analysis for sales performance by item and store dimensions
 
 ### Out of Scope
+- Daily or weekly level granularity
+- Customer dimension analysis
 - Real-time data processing
 - Historical data versioning (SCD implementation)
-- Data lineage tracking beyond basic documentation
-- Performance optimization beyond basic indexing
 
 ### Assumptions
-- Source data is available in a relational database
-- Data quality issues in source systems are minimal
+- Source data quality is acceptable with minimal cleansing required
 - Monthly aggregation is sufficient for business requirements
-- All source tables have consistent data types and relationships
-- Target system supports SQL-based transformations
+- All required foreign key relationships exist in source data
+- Date dimension contains complete date range for sales transactions
 
-## 2. Source to Target Mapping
+## Source to Target Mapping
 
 ### Fact Table: fact_monthly_sales
-
-| Target Column | Source Table | Source Column(s) | Transformation Logic |
-|---------------|--------------|------------------|----------------------|
-| date_key | date_dim | d_date_sk | Direct mapping |
-| item_key | store_sales | ss_item_sk | Direct mapping |
-| store_key | store_sales | ss_store_sk | Direct mapping |
-| year_month | date_dim | d_year, d_moy | CONCAT(d_year, '-', LPAD(d_moy, 2, '0')) |
-| total_quantity | store_sales | ss_quantity | SUM(ss_quantity) GROUP BY keys |
-| total_sales_amount | store_sales | ss_ext_sales_price | SUM(ss_ext_sales_price) GROUP BY keys |
-| total_net_paid | store_sales | ss_net_paid | SUM(ss_net_paid) GROUP BY keys |
-| total_net_profit | store_sales | ss_net_profit | SUM(ss_net_profit) GROUP BY keys |
+| Target Column | Source Column(s) | Transformation Logic |
+|---------------|------------------|---------------------|
+| date_key | store_sales.ss_sold_date_sk | Direct mapping from sales transaction |
+| item_key | store_sales.ss_item_sk | Direct mapping from sales transaction |
+| store_key | store_sales.ss_store_sk | Direct mapping from sales transaction |
+| year_month | date_dim.d_year + date_dim.d_moy | CONCAT(d_year, '-', LPAD(d_moy, 2, '0')) |
+| total_quantity | store_sales.ss_quantity | SUM(ss_quantity) GROUP BY date_key, item_key, store_key |
+| total_sales_amount | store_sales.ss_ext_sales_price | SUM(ss_ext_sales_price) GROUP BY date_key, item_key, store_key |
+| total_net_paid | store_sales.ss_net_paid | SUM(ss_net_paid) GROUP BY date_key, item_key, store_key |
+| total_net_profit | store_sales.ss_net_profit | SUM(ss_net_profit) GROUP BY date_key, item_key, store_key |
 
 ### Dimension Tables
 
 #### dim_item
-| Target Column | Source Table | Source Column | Transformation Logic |
-|---------------|--------------|---------------|----------------------|
-| item_key | item | i_item_sk | Direct mapping |
-| item_id | item | i_item_id | Direct mapping |
-| item_name | item | i_product_name | Direct mapping |
-| item_description | item | i_item_desc | Direct mapping |
-| brand | item | i_brand | Direct mapping |
-| category | item | i_category | Direct mapping |
-| class | item | i_class | Direct mapping |
+| Target Column | Source Column | Transformation Logic |
+|---------------|---------------|---------------------|
+| item_key | item.i_item_sk | Direct mapping |
+| item_id | item.i_item_id | Direct mapping |
+| item_name | item.i_product_name | Direct mapping |
+| item_description | item.i_item_desc | Direct mapping |
+| brand | item.i_brand | Direct mapping |
+| category | item.i_category | Direct mapping |
+| class | item.i_class | Direct mapping |
 
 #### dim_store
-| Target Column | Source Table | Source Column | Transformation Logic |
-|---------------|--------------|---------------|----------------------|
-| store_key | store | s_store_sk | Direct mapping |
-| store_id | store | s_store_id | Direct mapping |
-| store_name | store | s_store_name | Direct mapping |
-| city | store | s_city | Direct mapping |
-| state | store | s_state | Direct mapping |
-| country | store | s_country | Direct mapping |
+| Target Column | Source Column | Transformation Logic |
+|---------------|---------------|---------------------|
+| store_key | store.s_store_sk | Direct mapping |
+| store_id | store.s_store_id | Direct mapping |
+| store_name | store.s_store_name | Direct mapping |
+| city | store.s_city | Direct mapping |
+| state | store.s_state | Direct mapping |
+| country | store.s_country | Direct mapping |
 
 #### dim_date
-| Target Column | Source Table | Source Column | Transformation Logic |
-|---------------|--------------|---------------|----------------------|
-| date_key | date_dim | d_date_sk | Direct mapping |
-| date_value | date_dim | d_date | Direct mapping |
-| year | date_dim | d_year | Direct mapping |
-| month | date_dim | d_moy | Direct mapping |
-| year_month | date_dim | d_year, d_moy | CONCAT(d_year, '-', LPAD(d_moy, 2, '0')) |
-| quarter_name | date_dim | d_quarter_name | Direct mapping |
+| Target Column | Source Column | Transformation Logic |
+|---------------|---------------|---------------------|
+| date_key | date_dim.d_date_sk | Direct mapping |
+| date_value | date_dim.d_date | Direct mapping |
+| year | date_dim.d_year | Direct mapping |
+| month | date_dim.d_moy | Direct mapping |
+| year_month | date_dim.d_year + date_dim.d_moy | CONCAT(d_year, '-', LPAD(d_moy, 2, '0')) |
+| quarter_name | date_dim.d_quarter_name | Direct mapping |
 
-## 3. Source Data Model Diagram
+## Data Model Diagram
 
+### Source Data Model
 ```mermaid
 erDiagram
     store_sales {
-        NUMBER ss_sold_date_sk PK
-        NUMBER ss_item_sk FK
-        NUMBER ss_store_sk FK
+        NUMBER ss_sold_date_sk
+        NUMBER ss_item_sk
+        NUMBER ss_store_sk
         NUMBER ss_quantity
         NUMBER ss_sales_price
         NUMBER ss_ext_sales_price
@@ -89,7 +87,7 @@ erDiagram
     }
     
     item {
-        NUMBER i_item_sk PK
+        NUMBER i_item_sk
         STRING i_item_id
         STRING i_item_desc
         STRING i_brand
@@ -99,7 +97,7 @@ erDiagram
     }
     
     store {
-        NUMBER s_store_sk PK
+        NUMBER s_store_sk
         STRING s_store_id
         STRING s_store_name
         STRING s_city
@@ -108,7 +106,7 @@ erDiagram
     }
     
     date_dim {
-        NUMBER d_date_sk PK
+        NUMBER d_date_sk
         DATE d_date
         NUMBER d_year
         NUMBER d_moy
@@ -116,43 +114,35 @@ erDiagram
         STRING d_quarter_name
     }
     
-    store_sales ||--o{ item : "ss_item_sk = i_item_sk"
-    store_sales ||--o{ store : "ss_store_sk = s_store_sk"
-    store_sales ||--o{ date_dim : "ss_sold_date_sk = d_date_sk"
+    store_sales ||--|| date_dim : ss_sold_date_sk
+    store_sales ||--|| item : ss_item_sk
+    store_sales ||--|| store : ss_store_sk
 ```
 
-## 4. Data Flow Diagram
+## Data Flow Diagram
 
 ```mermaid
 flowchart TD
-    A[store_sales] --> E[Extract & Transform]
-    B[item] --> F[Extract & Load]
-    C[store] --> G[Extract & Load]
-    D[date_dim] --> H[Extract & Transform]
+    A[store_sales] --> E[ETL Process]
+    B[item] --> E
+    C[store] --> E
+    D[date_dim] --> E
     
-    E --> I[Aggregate by Month]
-    F --> J[dim_item]
-    G --> K[dim_store]
-    H --> L[dim_date]
+    E --> F[dim_item]
+    E --> G[dim_store] 
+    E --> H[dim_date]
+    E --> I[fact_monthly_sales]
     
-    I --> M[fact_monthly_sales]
+    F --> J[Star Schema]
+    G --> J
+    H --> J
+    I --> J
     
-    J --> N[Star Schema Warehouse]
-    K --> N
-    L --> N
-    M --> N
-    
-    N --> O[KPI Analysis]
-    O --> P[Sales by Item/Month]
-    O --> Q[Sales by Store/Month]
-    
-    style E fill:#e1f5fe
-    style I fill:#e8f5e8
-    style N fill:#fff3e0
-    style O fill:#f3e5f5
+    J --> K[KPI: Sales by Item/Month]
+    J --> L[KPI: Sales by Store/Month]
 ```
 
-## 5. Target Data Model
+## Target Data Model
 
 ### DDL Statements
 
@@ -203,19 +193,27 @@ CREATE TABLE fact_monthly_sales (
 );
 ```
 
-### Target Data Model Diagram
-
+### Target Star Schema Diagram
 ```mermaid
 erDiagram
     fact_monthly_sales {
-        NUMBER date_key PK,FK
-        NUMBER item_key PK,FK
-        NUMBER store_key PK,FK
+        NUMBER date_key FK
+        NUMBER item_key FK
+        NUMBER store_key FK
         STRING year_month
         NUMBER total_quantity
         NUMBER total_sales_amount
         NUMBER total_net_paid
         NUMBER total_net_profit
+    }
+    
+    dim_date {
+        NUMBER date_key PK
+        DATE date_value
+        NUMBER year
+        NUMBER month
+        STRING year_month
+        STRING quarter_name
     }
     
     dim_item {
@@ -237,95 +235,129 @@ erDiagram
         STRING country
     }
     
-    dim_date {
-        NUMBER date_key PK
-        DATE date_value
-        NUMBER year
-        NUMBER month
-        STRING year_month
-        STRING quarter_name
-    }
-    
-    fact_monthly_sales ||--o{ dim_item : "item_key"
-    fact_monthly_sales ||--o{ dim_store : "store_key"
-    fact_monthly_sales ||--o{ dim_date : "date_key"
+    dim_date ||--o{ fact_monthly_sales : date_key
+    dim_item ||--o{ fact_monthly_sales : item_key
+    dim_store ||--o{ fact_monthly_sales : store_key
 ```
 
-## 6. Dependencies
+## Dependencies
 
 ### ETL Dependencies
-- **Data Availability**: Source tables (store_sales, item, store, date_dim) must be available and populated
-- **Execution Order**: 
-  1. Load dimension tables first (dim_item, dim_store, dim_date)
-  2. Load fact table (fact_monthly_sales) after all dimensions are populated
-- **System Dependencies**: Database connection and sufficient storage capacity
+1. **Execution Order:**
+   - Load dimension tables first: dim_date, dim_item, dim_store
+   - Load fact table last: fact_monthly_sales
+2. **Data Dependencies:**
+   - All source tables must be available and populated
+   - Date dimension must cover the complete range of sales dates
+   - Referential integrity between sales and dimension keys
 
 ### Python Library Dependencies
 ```python
-# requirements.txt
-pandas>=1.5.0
-sqlalchemy>=1.4.0
-psycopg2-binary>=2.9.0  # For PostgreSQL
-cx_Oracle>=8.0.0        # For Oracle
-pymysql>=1.0.0          # For MySQL
-python-dotenv>=0.19.0   # For environment variables
-logging>=0.4.9.6        # For logging
-pytest>=7.0.0           # For testing
+# Core ETL Libraries
+pandas==1.5.0
+numpy==1.24.0
+sqlalchemy==1.4.0
+
+# Database Connectors
+psycopg2-binary==2.9.0  # PostgreSQL
+pymysql==1.0.2         # MySQL
+cx-Oracle==8.3.0       # Oracle
+
+# Data Quality & Testing
+great-expectations==0.15.0
+pytest==7.2.0
+
+# Logging & Monitoring
+loguru==0.6.0
 ```
 
-## 7. Data Quality
-
-### Data Quality Rules
-
-| Table | Column | Rule Type | Rule Description | Action on Failure |
-|-------|--------|-----------|------------------|-------------------|
-| fact_monthly_sales | date_key | NOT NULL | Date key must exist | Log error, skip record |
-| fact_monthly_sales | item_key | REFERENTIAL | Must exist in dim_item | Log error, skip record |
-| fact_monthly_sales | store_key | REFERENTIAL | Must exist in dim_store | Log error, skip record |
-| fact_monthly_sales | total_quantity | RANGE | Must be >= 0 | Log warning, set to 0 |
-| fact_monthly_sales | total_sales_amount | RANGE | Must be >= 0 | Log warning, set to 0 |
-| dim_item | item_key | UNIQUENESS | Primary key uniqueness | Fail load |
-| dim_store | store_key | UNIQUENESS | Primary key uniqueness | Fail load |
-| dim_date | date_key | UNIQUENESS | Primary key uniqueness | Fail load |
+## Data Quality
 
 ### Data Quality Checks
-- **Completeness**: Verify all expected records are loaded
-- **Consistency**: Cross-validate totals between source and target
-- **Accuracy**: Sample data validation against business rules
-- **Timeliness**: Monitor ETL execution time and data freshness
 
-## 8. Recovery
+#### Source Data Validation
+1. **Completeness Checks:**
+   - Verify no NULL values in primary keys (ss_sold_date_sk, ss_item_sk, ss_store_sk)
+   - Validate foreign key relationships exist
+   - Check for missing dimension records
 
-### Backup Strategy
-- **Full Backup**: Daily backup of all target tables
-- **Incremental Backup**: Transaction log backup every 15 minutes
-- **Point-in-time Recovery**: Maintain 30-day recovery window
+2. **Accuracy Checks:**
+   - Validate numeric columns are positive (quantities, amounts)
+   - Ensure date ranges are reasonable
+   - Verify sales amounts match calculated values
 
-### Recovery Procedures
+3. **Consistency Checks:**
+   - Cross-reference item keys across tables
+   - Validate store keys consistency
+   - Check date dimension completeness
 
-#### ETL Failure Recovery
-1. **Identify Failure Point**: Check ETL logs for specific error location
-2. **Data Validation**: Verify data integrity in successfully loaded tables
-3. **Rollback Strategy**: 
-   - Truncate partially loaded fact table
-   - Restore dimension tables if corrupted
-   - Re-run ETL from last successful checkpoint
-4. **Restart Process**: Execute ETL with appropriate parameters
+#### Target Data Validation
+1. **Aggregation Validation:**
+   - Compare source totals with fact table aggregates
+   - Validate monthly grouping accuracy
+   - Ensure no data loss during transformation
 
-#### Data Corruption Recovery
-1. **Isolate Affected Tables**: Identify scope of corruption
-2. **Restore from Backup**: Use most recent clean backup
-3. **Replay Transactions**: Apply incremental changes since backup
-4. **Validate Results**: Run data quality checks post-recovery
+2. **Referential Integrity:**
+   - Verify all foreign keys exist in dimension tables
+   - Check for orphaned records
 
-#### Disaster Recovery
-1. **Failover to Secondary Site**: If primary system unavailable
-2. **Data Synchronization**: Ensure secondary site has latest data
-3. **Business Continuity**: Maintain analytical capabilities during recovery
-4. **Failback Procedure**: Systematic return to primary environment
+### Data Quality Metrics
+- **Completeness:** 100% of records must have valid keys
+- **Accuracy:** Sales amounts variance < 0.01%
+- **Timeliness:** ETL completion within 2-hour SLA
+- **Consistency:** Zero referential integrity violations
 
-### Monitoring and Alerting
-- **ETL Job Monitoring**: Real-time status tracking
-- **Data Quality Alerts**: Automated notifications for quality violations
-- **Performance Monitoring**: Track execution time and resource usage
-- **System Health Checks**: Regular validation of system components
+## Recovery
+
+### Recovery Strategy
+
+#### Backup Strategy
+1. **Source Data Backup:**
+   - Daily incremental backups of source tables
+   - Weekly full backups retained for 12 weeks
+   - Point-in-time recovery capability
+
+2. **Target Data Backup:**
+   - Pre-ETL snapshot of target tables
+   - Post-ETL validation checkpoint
+   - Monthly archived copies for historical analysis
+
+#### Recovery Procedures
+
+##### ETL Failure Recovery
+1. **Detection:**
+   - Automated monitoring alerts on ETL failure
+   - Data quality threshold violations trigger alerts
+   - Missing data detection through row count validation
+
+2. **Recovery Steps:**
+   ```bash
+   # Step 1: Identify failure point
+   python etl_monitor.py --check-last-run
+   
+   # Step 2: Restore to last known good state
+   python restore_checkpoint.py --date=YYYY-MM-DD
+   
+   # Step 3: Re-run ETL from failure point
+   python monthly_sales_etl.py --restart-from=<step>
+   
+   # Step 4: Validate data integrity
+   python data_quality_check.py --full-validation
+   ```
+
+##### Data Corruption Recovery
+1. **Immediate Response:**
+   - Stop all ETL processes
+   - Isolate affected tables
+   - Notify stakeholders
+
+2. **Recovery Actions:**
+   - Restore from last known good backup
+   - Re-run ETL with enhanced validation
+   - Perform comprehensive data quality assessment
+   - Update recovery procedures based on lessons learned
+
+#### Recovery Testing
+- Monthly disaster recovery drills
+- Quarterly end-to-end recovery validation
+- Annual recovery procedure review and update
