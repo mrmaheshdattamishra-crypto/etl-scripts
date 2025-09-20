@@ -1,250 +1,136 @@
-version: 1.0.0
-name: monthly_sales_star_schema
-description: Star schema for monthly sales analysis
+schema:
+  name: monthly_sales_star_schema
+  description: Star schema for monthly sales analysis with fact and dimension tables
+  
+  tables:
+    # Fact Table
+    - name: fact_monthly_sales
+      description: Monthly aggregated sales facts by item and store
+      type: fact
+      columns:
+        - name: sales_month_key
+          data_type: STRING
+          description: Composite key representing year-month (YYYY-MM format)
+        - name: item_key
+          data_type: NUMBER
+          description: Foreign key to item dimension
+        - name: store_key
+          data_type: NUMBER
+          description: Foreign key to store dimension
+        - name: year
+          data_type: NUMBER
+          description: Sales year
+        - name: month
+          data_type: NUMBER
+          description: Sales month (1-12)
+        - name: total_quantity
+          data_type: NUMBER
+          description: Total quantity sold for the month
+        - name: total_sales_amount
+          data_type: NUMBER
+          description: Total extended sales price for the month
+        - name: total_net_paid
+          data_type: NUMBER
+          description: Total net amount paid for the month
+        - name: total_net_profit
+          data_type: NUMBER
+          description: Total net profit for the month
+        - name: transaction_count
+          data_type: NUMBER
+          description: Count of distinct transactions for the month
 
-tables:
-  # Source Tables
-  store_sales:
-    description: Fact table containing store sales transactions
-    columns:
-      ss_sold_date_sk:
-        type: NUMBER
-        description: Foreign key to date dimension
-      ss_item_sk:
-        type: NUMBER
-        description: Foreign key to item dimension
-      ss_store_sk:
-        type: NUMBER
-        description: Foreign key to store dimension
-      ss_quantity:
-        type: NUMBER
-        description: Quantity of items sold
-      ss_sales_price:
-        type: NUMBER
-        description: Unit sales price
-      ss_ext_sales_price:
-        type: NUMBER
-        description: Extended sales price
-      ss_net_paid:
-        type: NUMBER
-        description: Net amount paid
-      ss_net_profit:
-        type: NUMBER
-        description: Net profit amount
+    # Dimension Tables
+    - name: dim_item
+      description: Item dimension containing product information
+      type: dimension
+      columns:
+        - name: item_key
+          data_type: NUMBER
+          description: Primary key for item dimension
+        - name: item_id
+          data_type: STRING
+          description: Business identifier for item
+        - name: item_description
+          data_type: STRING
+          description: Detailed description of the item
+        - name: brand
+          data_type: STRING
+          description: Brand name of the item
+        - name: class
+          data_type: STRING
+          description: Item class classification
+        - name: category
+          data_type: STRING
+          description: Item category classification
+        - name: product_name
+          data_type: STRING
+          description: Product name of the item
 
-  item:
-    description: Item dimension table containing product information
-    columns:
-      i_item_sk:
-        type: NUMBER
-        description: Item surrogate key
-      i_item_id:
-        type: STRING
-        description: Item identifier
-      i_item_desc:
-        type: STRING
-        description: Item description
-      i_brand:
-        type: STRING
-        description: Brand name
-      i_class:
-        type: STRING
-        description: Item class
-      i_category:
-        type: STRING
-        description: Item category
-      i_product_name:
-        type: STRING
-        description: Product name
+    - name: dim_store
+      description: Store dimension containing store location and hierarchy information
+      type: dimension
+      columns:
+        - name: store_key
+          data_type: NUMBER
+          description: Primary key for store dimension
+        - name: store_id
+          data_type: STRING
+          description: Business identifier for store
+        - name: store_name
+          data_type: STRING
+          description: Name of the store
+        - name: city
+          data_type: STRING
+          description: City where store is located
+        - name: state
+          data_type: STRING
+          description: State where store is located
+        - name: division_name
+          data_type: STRING
+          description: Division name in organizational hierarchy
+        - name: company_name
+          data_type: STRING
+          description: Company name owning the store
 
-  store:
-    description: Store dimension table containing store information
-    columns:
-      s_store_sk:
-        type: NUMBER
-        description: Store surrogate key
-      s_store_id:
-        type: STRING
-        description: Store identifier
-      s_store_name:
-        type: STRING
-        description: Store name
-      s_city:
-        type: STRING
-        description: Store city
-      s_state:
-        type: STRING
-        description: Store state
-      s_division_name:
-        type: STRING
-        description: Division name
-      s_company_name:
-        type: STRING
-        description: Company name
-
-  date_dim:
-    description: Date dimension table containing date information
-    columns:
-      d_date_sk:
-        type: NUMBER
-        description: Date surrogate key
-      d_date:
-        type: DATE
-        description: Date value
-      d_year:
-        type: NUMBER
-        description: Year
-      d_moy:
-        type: NUMBER
-        description: Month of year
-      d_month_seq:
-        type: NUMBER
-        description: Month sequence number
-      d_quarter_name:
-        type: STRING
-        description: Quarter name
-
-  # Target Tables
-  fact_monthly_sales:
-    description: Monthly aggregated sales fact table
-    columns:
-      sales_month_key:
-        type: STRING
-        description: Composite key for year-month
-      item_key:
-        type: NUMBER
-        description: Foreign key to item dimension
-      store_key:
-        type: NUMBER
-        description: Foreign key to store dimension
-      year:
-        type: NUMBER
-        description: Sales year
-      month:
-        type: NUMBER
-        description: Sales month
-      total_quantity:
-        type: NUMBER
-        description: Total quantity sold
-      total_sales_amount:
-        type: NUMBER
-        description: Total sales amount
-      total_net_paid:
-        type: NUMBER
-        description: Total net paid amount
-      total_net_profit:
-        type: NUMBER
-        description: Total net profit
-      transaction_count:
-        type: NUMBER
-        description: Count of transactions
-
-  dim_item:
-    description: Target item dimension table
-    columns:
-      item_key:
-        type: NUMBER
-        description: Item surrogate key
-      item_id:
-        type: STRING
-        description: Item identifier
-      item_description:
-        type: STRING
-        description: Item description
-      brand:
-        type: STRING
-        description: Brand name
-      class:
-        type: STRING
-        description: Item class
-      category:
-        type: STRING
-        description: Item category
-      product_name:
-        type: STRING
-        description: Product name
-
-  dim_store:
-    description: Target store dimension table
-    columns:
-      store_key:
-        type: NUMBER
-        description: Store surrogate key
-      store_id:
-        type: STRING
-        description: Store identifier
-      store_name:
-        type: STRING
-        description: Store name
-      city:
-        type: STRING
-        description: Store city
-      state:
-        type: STRING
-        description: Store state
-      division_name:
-        type: STRING
-        description: Division name
-      company_name:
-        type: STRING
-        description: Company name
-
-  dim_date_month:
-    description: Monthly date dimension table
-    columns:
-      sales_month_key:
-        type: STRING
-        description: Composite key for year-month
-      year:
-        type: NUMBER
-        description: Year
-      month:
-        type: NUMBER
-        description: Month number
-      month_name:
-        type: STRING
-        description: Month name
-      quarter_name:
-        type: STRING
-        description: Quarter name
+    - name: dim_date_month
+      description: Monthly date dimension for time-based analysis
+      type: dimension
+      columns:
+        - name: sales_month_key
+          data_type: STRING
+          description: Primary key representing year-month (YYYY-MM format)
+        - name: year
+          data_type: NUMBER
+          description: Calendar year
+        - name: month
+          data_type: NUMBER
+          description: Month number (1-12)
+        - name: month_name
+          data_type: STRING
+          description: Full month name (January, February, etc.)
+        - name: quarter_name
+          data_type: STRING
+          description: Quarter name (Q1, Q2, Q3, Q4)
 
 relationships:
-  - name: store_sales_to_item
-    from_table: store_sales
-    from_column: ss_item_sk
-    to_table: item
-    to_column: i_item_sk
-    relationship_type: many_to_one
-    
-  - name: store_sales_to_store
-    from_table: store_sales
-    from_column: ss_store_sk
-    to_table: store
-    to_column: s_store_sk
-    relationship_type: many_to_one
-    
-  - name: store_sales_to_date_dim
-    from_table: store_sales
-    from_column: ss_sold_date_sk
-    to_table: date_dim
-    to_column: d_date_sk
-    relationship_type: many_to_one
-    
-  - name: fact_monthly_sales_to_dim_item
+  - name: fact_to_item
+    description: Relationship between fact table and item dimension
     from_table: fact_monthly_sales
     from_column: item_key
     to_table: dim_item
     to_column: item_key
     relationship_type: many_to_one
-    
-  - name: fact_monthly_sales_to_dim_store
+
+  - name: fact_to_store
+    description: Relationship between fact table and store dimension
     from_table: fact_monthly_sales
     from_column: store_key
     to_table: dim_store
     to_column: store_key
     relationship_type: many_to_one
-    
-  - name: fact_monthly_sales_to_dim_date_month
+
+  - name: fact_to_date_month
+    description: Relationship between fact table and monthly date dimension
     from_table: fact_monthly_sales
     from_column: sales_month_key
     to_table: dim_date_month
