@@ -1,96 +1,152 @@
 Feature: sales_summary_by_channel
 
-Scenario: Source Schema Definition
-  Given source table "store_sales" with schema:
-    | Column Name           | Data Type    |
-    | ss_sold_date_sk      | NUMBER       |
-    | ss_item_sk           | NUMBER       |
-    | ss_quantity          | NUMBER       |
-    | ss_sales_price       | NUMBER       |
-    | ss_ext_sales_price   | NUMBER       |
-    | ss_net_profit        | NUMBER       |
-    | ss_store_sk          | NUMBER       |
+Background:
+    Given source table "store_sales" with schema:
+        | Column                | Type         |
+        | ss_sold_date_sk       | NUMBER       |
+        | ss_item_sk            | NUMBER       |
+        | ss_customer_sk        | NUMBER       |
+        | ss_store_sk           | NUMBER       |
+        | ss_quantity           | NUMBER       |
+        | ss_sales_price        | NUMBER       |
+        | ss_ext_sales_price    | NUMBER       |
+        | ss_net_paid           | NUMBER       |
+        | ss_net_profit         | NUMBER       |
 
-  And source table "catalog_sales" with schema:
-    | Column Name           | Data Type    |
-    | cs_sold_date_sk      | NUMBER       |
-    | cs_item_sk           | NUMBER       |
-    | cs_quantity          | NUMBER       |
-    | cs_sales_price       | NUMBER       |
-    | cs_ext_sales_price   | NUMBER       |
-    | cs_net_profit        | NUMBER       |
-    | cs_call_center_sk    | NUMBER       |
+    And source table "web_sales" with schema:
+        | Column                | Type         |
+        | ws_sold_date_sk       | NUMBER       |
+        | ws_item_sk            | NUMBER       |
+        | ws_bill_customer_sk   | NUMBER       |
+        | ws_web_site_sk        | NUMBER       |
+        | ws_quantity           | NUMBER       |
+        | ws_sales_price        | NUMBER       |
+        | ws_ext_sales_price    | NUMBER       |
+        | ws_net_paid           | NUMBER       |
+        | ws_net_profit         | NUMBER       |
 
-  And source table "web_sales" with schema:
-    | Column Name           | Data Type    |
-    | ws_sold_date_sk      | NUMBER       |
-    | ws_item_sk           | NUMBER       |
-    | ws_quantity          | NUMBER       |
-    | ws_sales_price       | NUMBER       |
-    | ws_ext_sales_price   | NUMBER       |
-    | ws_net_profit        | NUMBER       |
-    | ws_web_site_sk       | NUMBER       |
+    And source table "catalog_sales" with schema:
+        | Column                | Type         |
+        | cs_sold_date_sk       | NUMBER       |
+        | cs_item_sk            | NUMBER       |
+        | cs_bill_customer_sk   | NUMBER       |
+        | cs_call_center_sk     | NUMBER       |
+        | cs_quantity           | NUMBER       |
+        | cs_sales_price        | NUMBER       |
+        | cs_ext_sales_price    | NUMBER       |
+        | cs_net_paid           | NUMBER       |
+        | cs_net_profit         | NUMBER       |
 
-  And source table "date_dim" with schema:
-    | Column Name    | Data Type |
-    | d_date_sk     | NUMBER    |
-    | d_date        | DATE      |
-    | d_year        | NUMBER    |
-    | d_moy         | NUMBER    |
-    | d_qoy         | NUMBER    |
-    | d_day_name    | STRING    |
+    And source table "date_dim" with schema:
+        | Column                | Type         |
+        | d_date_sk             | NUMBER       |
+        | d_date                | DATE         |
+        | d_year                | NUMBER       |
+        | d_moy                 | NUMBER       |
+        | d_qoy                 | NUMBER       |
+        | d_day_name            | STRING       |
+        | d_quarter_name        | STRING       |
 
-  And source table "item" with schema:
-    | Column Name    | Data Type |
-    | i_item_sk     | NUMBER    |
-    | i_item_id     | STRING    |
-    | i_category    | STRING    |
-    | i_brand       | STRING    |
-    | i_class       | STRING    |
+    And source table "store" with schema:
+        | Column                | Type         |
+        | s_store_sk            | NUMBER       |
+        | s_store_name          | STRING       |
+        | s_state               | STRING       |
+        | s_city                | STRING       |
 
-Scenario: Target Schema Definition
-  Given target table "sales_summary_by_channel" with schema:
-    | Column Name           | Data Type |
-    | sale_date            | DATE      |
-    | year                 | NUMBER    |
-    | month                | NUMBER    |
-    | quarter              | NUMBER    |
-    | day_name             | STRING    |
-    | channel              | STRING    |
-    | item_category        | STRING    |
-    | item_brand           | STRING    |
-    | item_class           | STRING    |
-    | total_quantity       | NUMBER    |
-    | total_sales_amount   | NUMBER    |
-    | total_net_profit     | NUMBER    |
-    | avg_unit_price       | NUMBER    |
-    | transaction_count    | NUMBER    |
+    And source table "web_site" with schema:
+        | Column                | Type         |
+        | web_site_sk           | NUMBER       |
+        | web_name              | STRING       |
+        | web_state             | STRING       |
+        | web_city              | STRING       |
 
-Scenario: Join Relations
-  Given store_sales joins with date_dim on store_sales.ss_sold_date_sk equals date_dim.d_date_sk
-  And store_sales joins with item on store_sales.ss_item_sk equals item.i_item_sk
-  And catalog_sales joins with date_dim on catalog_sales.cs_sold_date_sk equals date_dim.d_date_sk
-  And catalog_sales joins with item on catalog_sales.cs_item_sk equals item.i_item_sk
-  And web_sales joins with date_dim on web_sales.ws_sold_date_sk equals date_dim.d_date_sk
-  And web_sales joins with item on web_sales.ws_item_sk equals item.i_item_sk
+    And source table "call_center" with schema:
+        | Column                | Type         |
+        | cc_call_center_sk     | NUMBER       |
+        | cc_name               | STRING       |
+        | cc_state              | STRING       |
+        | cc_city               | STRING       |
 
-Scenario: Data Mapping
-  Given I want to create a unified sales summary across all channels
-  When I combine store sales, catalog sales, and web sales data
-  Then I should map sale_date from the date dimension table date field
-  And I should map year from the date dimension table year field
-  And I should map month from the date dimension table month field
-  And I should map quarter from the date dimension table quarter field
-  And I should map day_name from the date dimension table day name field
-  And I should map channel as store for store sales records
-  And I should map channel as catalog for catalog sales records
-  And I should map channel as web for web sales records
-  And I should map item_category from the item table category field
-  And I should map item_brand from the item table brand field
-  And I should map item_class from the item table class field
-  And I should sum quantity across all channels to get total_quantity
-  And I should sum extended sales price across all channels to get total_sales_amount
-  And I should sum net profit across all channels to get total_net_profit
-  And I should calculate average unit price as total sales amount divided by total quantity
-  And I should count distinct transactions to get transaction_count
-  And I should group by sale date, channel, item category, item brand, and item class
+    And target table "sales_summary_by_channel" with schema:
+        | Column                | Type         |
+        | sales_date            | DATE         |
+        | year                  | NUMBER       |
+        | month                 | NUMBER       |
+        | quarter               | NUMBER       |
+        | day_name              | STRING       |
+        | channel               | STRING       |
+        | channel_location      | STRING       |
+        | channel_state         | STRING       |
+        | total_quantity        | NUMBER       |
+        | total_sales_amount    | NUMBER       |
+        | total_net_paid        | NUMBER       |
+        | total_net_profit      | NUMBER       |
+        | transaction_count     | NUMBER       |
+        | avg_sales_price       | NUMBER       |
+
+Scenario: Transform store sales data
+    When processing store sales transactions
+    Then join store_sales with date_dim on sold date key equals date surrogate key
+    And join store_sales with store on store surrogate key equals store surrogate key
+    And map sales date to the actual date from date dimension
+    And map year to the year from date dimension
+    And map month to the month from date dimension
+    And map quarter to the quarter from date dimension
+    And map day name to the day name from date dimension
+    And map channel to literal value store
+    And map channel location to store name
+    And map channel state to store state
+    And aggregate total quantity by summing quantity
+    And aggregate total sales amount by summing extended sales price
+    And aggregate total net paid by summing net paid
+    And aggregate total net profit by summing net profit
+    And aggregate transaction count by counting distinct ticket numbers
+    And calculate average sales price by dividing total sales amount by total quantity
+
+Scenario: Transform web sales data
+    When processing web sales transactions
+    Then join web_sales with date_dim on sold date key equals date surrogate key
+    And join web_sales with web_site on web site surrogate key equals web site surrogate key
+    And map sales date to the actual date from date dimension
+    And map year to the year from date dimension
+    And map month to the month from date dimension
+    And map quarter to the quarter from date dimension
+    And map day name to the day name from date dimension
+    And map channel to literal value web
+    And map channel location to web site name
+    And map channel state to web site state
+    And aggregate total quantity by summing quantity
+    And aggregate total sales amount by summing extended sales price
+    And aggregate total net paid by summing net paid
+    And aggregate total net profit by summing net profit
+    And aggregate transaction count by counting distinct order numbers
+    And calculate average sales price by dividing total sales amount by total quantity
+
+Scenario: Transform catalog sales data
+    When processing catalog sales transactions
+    Then join catalog_sales with date_dim on sold date key equals date surrogate key
+    And join catalog_sales with call_center on call center surrogate key equals call center surrogate key
+    And map sales date to the actual date from date dimension
+    And map year to the year from date dimension
+    And map month to the month from date dimension
+    And map quarter to the quarter from date dimension
+    And map day name to the day name from date dimension
+    And map channel to literal value catalog
+    And map channel location to call center name
+    And map channel state to call center state
+    And aggregate total quantity by summing quantity
+    And aggregate total sales amount by summing extended sales price
+    And aggregate total net paid by summing net paid
+    And aggregate total net profit by summing net profit
+    And aggregate transaction count by counting distinct order numbers
+    And calculate average sales price by dividing total sales amount by total quantity
+
+Scenario: Combine all channel data
+    When consolidating sales data across channels
+    Then union all transformed store sales data
+    And union all transformed web sales data
+    And union all transformed catalog sales data
+    And group by sales date year month quarter day name channel channel location and channel state
+    And aggregate all metrics by summing quantities amounts paid profit and transaction counts
+    And recalculate average sales price for combined data
