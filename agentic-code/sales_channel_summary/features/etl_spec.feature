@@ -1,139 +1,84 @@
 Feature: sales_channel_summary
+  As a business analyst
+  I want to analyze sales patterns across different channels
+  So that I can understand channel performance and customer behavior
 
-  Background: Schema specification for sales channel summary data product
-    Given source table "store_sales" with columns:
-      | column_name | data_type |
-      | ss_sold_date_sk | NUMBER |
-      | ss_item_sk | NUMBER |
-      | ss_store_sk | NUMBER |
-      | ss_quantity | NUMBER |
-      | ss_sales_price | NUMBER |
-      | ss_net_profit | NUMBER |
-    
-    And source table "catalog_sales" with columns:
-      | column_name | data_type |
-      | cs_sold_date_sk | NUMBER |
-      | cs_item_sk | NUMBER |
-      | cs_catalog_page_sk | NUMBER |
-      | cs_quantity | NUMBER |
-      | cs_sales_price | NUMBER |
-      | cs_net_profit | NUMBER |
-    
-    And source table "web_sales" with columns:
-      | column_name | data_type |
-      | ws_sold_date_sk | NUMBER |
-      | ws_item_sk | NUMBER |
-      | ws_web_site_sk | NUMBER |
-      | ws_quantity | NUMBER |
-      | ws_sales_price | NUMBER |
-      | ws_net_profit | NUMBER |
-    
-    And source table "item" with columns:
-      | column_name | data_type |
-      | i_item_sk | NUMBER |
-      | i_item_id | STRING |
-      | i_category | STRING |
-      | i_brand | STRING |
-      | i_product_name | STRING |
-    
-    And source table "store" with columns:
-      | column_name | data_type |
-      | s_store_sk | NUMBER |
-      | s_store_id | STRING |
-      | s_store_name | STRING |
-      | s_state | STRING |
-    
-    And source table "catalog_page" with columns:
-      | column_name | data_type |
-      | cp_catalog_page_sk | NUMBER |
-      | cp_catalog_page_id | STRING |
-      | cp_department | STRING |
-    
-    And source table "date_dim" with columns:
-      | column_name | data_type |
-      | d_date_sk | NUMBER |
-      | d_date | DATE |
-      | d_year | NUMBER |
-      | d_month_seq | NUMBER |
-      | d_quarter_name | STRING |
-    
-    And target table "sales_channel_summary" with columns:
-      | column_name | data_type |
-      | sale_date | DATE |
-      | year | NUMBER |
-      | quarter | STRING |
-      | channel_type | STRING |
-      | channel_id | STRING |
-      | channel_name | STRING |
-      | item_category | STRING |
-      | item_brand | STRING |
-      | total_quantity | NUMBER |
-      | total_sales_amount | NUMBER |
-      | total_net_profit | NUMBER |
-      | average_sale_price | NUMBER |
-      | transaction_count | NUMBER |
+  Background:
+    Given the following source tables with their schemas:
+      | table_name     | columns                                                                                                                           |
+      | catalog_sales  | cs_sold_date_sk:NUMBER, cs_item_sk:NUMBER, cs_quantity:NUMBER, cs_sales_price:NUMBER, cs_ext_sales_price:NUMBER, cs_net_profit:NUMBER, cs_call_center_sk:NUMBER |
+      | web_sales      | ws_sold_date_sk:NUMBER, ws_item_sk:NUMBER, ws_quantity:NUMBER, ws_sales_price:NUMBER, ws_ext_sales_price:NUMBER, ws_net_profit:NUMBER, ws_web_site_sk:NUMBER     |
+      | store_sales    | ss_sold_date_sk:NUMBER, ss_item_sk:NUMBER, ss_quantity:NUMBER, ss_sales_price:NUMBER, ss_ext_sales_price:NUMBER, ss_net_profit:NUMBER, ss_store_sk:NUMBER       |
+      | item           | i_item_sk:NUMBER, i_item_id:STRING, i_brand:STRING, i_class:STRING, i_category:STRING, i_product_name:STRING              |
+      | date_dim       | d_date_sk:NUMBER, d_date:DATE, d_year:NUMBER, d_moy:NUMBER, d_qoy:NUMBER, d_day_name:STRING, d_month_name:STRING           |
+      | store          | s_store_sk:NUMBER, s_store_id:STRING, s_store_name:STRING, s_state:STRING, s_company_name:STRING                           |
+      | web_site       | web_site_sk:NUMBER, web_site_id:STRING, web_name:STRING, web_company_name:STRING                                            |
+      | call_center    | cc_call_center_sk:NUMBER, cc_call_center_id:STRING, cc_name:STRING, cc_company_name:STRING                                 |
 
-  Scenario: Extract and transform store channel sales data
-    Given data from "store_sales" table
-    When joining "store_sales" with "date_dim" on ss_sold_date_sk equals d_date_sk
-    And joining with "item" on ss_item_sk equals i_item_sk  
-    And joining with "store" on ss_store_sk equals s_store_sk
-    Then map channel_type as literal string "Store"
-    And map channel_id from s_store_id
-    And map channel_name from s_store_name
-    And map sale_date from d_date
-    And map year from d_year
-    And map quarter from d_quarter_name
-    And map item_category from i_category
-    And map item_brand from i_brand
-    And aggregate total_quantity by summing ss_quantity
-    And aggregate total_sales_amount by summing ss_sales_price
-    And aggregate total_net_profit by summing ss_net_profit
-    And calculate average_sale_price by dividing total_sales_amount by total_quantity
-    And calculate transaction_count by counting distinct transactions
+    And the target table schema:
+      | table_name           | columns                                                                                                                                                                                    |
+      | sales_channel_summary| sale_date:DATE, channel_type:STRING, channel_name:STRING, channel_company:STRING, item_category:STRING, item_brand:STRING, total_quantity:NUMBER, total_sales:NUMBER, total_profit:NUMBER, avg_unit_price:NUMBER, transaction_count:NUMBER |
 
-  Scenario: Extract and transform catalog channel sales data
-    Given data from "catalog_sales" table
-    When joining "catalog_sales" with "date_dim" on cs_sold_date_sk equals d_date_sk
-    And joining with "item" on cs_item_sk equals i_item_sk
-    And joining with "catalog_page" on cs_catalog_page_sk equals cp_catalog_page_sk
-    Then map channel_type as literal string "Catalog"
-    And map channel_id from cp_catalog_page_id
-    And map channel_name from cp_department
-    And map sale_date from d_date
-    And map year from d_year
-    And map quarter from d_quarter_name
-    And map item_category from i_category
-    And map item_brand from i_brand
-    And aggregate total_quantity by summing cs_quantity
-    And aggregate total_sales_amount by summing cs_sales_price
-    And aggregate total_net_profit by summing cs_net_profit
-    And calculate average_sale_price by dividing total_sales_amount by total_quantity
-    And calculate transaction_count by counting distinct transactions
+  Scenario: Extract catalog sales data
+    Given catalog sales transactions
+    When processing catalog sales records
+    Then join catalog_sales with date_dim on cs_sold_date_sk equals d_date_sk
+    And join with item on cs_item_sk equals i_item_sk
+    And join with call_center on cs_call_center_sk equals cc_call_center_sk
+    And map sale_date to d_date from date_dim
+    And map channel_type to literal string 'catalog'
+    And map channel_name to cc_name from call_center
+    And map channel_company to cc_company_name from call_center
+    And map item_category to i_category from item
+    And map item_brand to i_brand from item
+    And map total_quantity to sum of cs_quantity
+    And map total_sales to sum of cs_ext_sales_price
+    And map total_profit to sum of cs_net_profit
+    And map avg_unit_price to average of cs_sales_price
+    And map transaction_count to count of distinct cs_order_number
 
-  Scenario: Extract and transform web channel sales data
-    Given data from "web_sales" table
-    When joining "web_sales" with "date_dim" on ws_sold_date_sk equals d_date_sk
-    And joining with "item" on ws_item_sk equals i_item_sk
-    Then map channel_type as literal string "Web"
-    And map channel_id from ws_web_site_sk converted to string
-    And map channel_name as literal string "Online Store"
-    And map sale_date from d_date
-    And map year from d_year
-    And map quarter from d_quarter_name
-    And map item_category from i_category
-    And map item_brand from i_brand
-    And aggregate total_quantity by summing ws_quantity
-    And aggregate total_sales_amount by summing ws_sales_price
-    And aggregate total_net_profit by summing ws_net_profit
-    And calculate average_sale_price by dividing total_sales_amount by total_quantity
-    And calculate transaction_count by counting distinct transactions
+  Scenario: Extract web sales data
+    Given web sales transactions
+    When processing web sales records
+    Then join web_sales with date_dim on ws_sold_date_sk equals d_date_sk
+    And join with item on ws_item_sk equals i_item_sk
+    And join with web_site on ws_web_site_sk equals web_site_sk
+    And map sale_date to d_date from date_dim
+    And map channel_type to literal string 'web'
+    And map channel_name to web_name from web_site
+    And map channel_company to web_company_name from web_site
+    And map item_category to i_category from item
+    And map item_brand to i_brand from item
+    And map total_quantity to sum of ws_quantity
+    And map total_sales to sum of ws_ext_sales_price
+    And map total_profit to sum of ws_net_profit
+    And map avg_unit_price to average of ws_sales_price
+    And map transaction_count to count of distinct ws_order_number
+
+  Scenario: Extract store sales data
+    Given store sales transactions
+    When processing store sales records
+    Then join store_sales with date_dim on ss_sold_date_sk equals d_date_sk
+    And join with item on ss_item_sk equals i_item_sk
+    And join with store on ss_store_sk equals s_store_sk
+    And map sale_date to d_date from date_dim
+    And map channel_type to literal string 'store'
+    And map channel_name to s_store_name from store
+    And map channel_company to s_company_name from store
+    And map item_category to i_category from item
+    And map item_brand to i_brand from item
+    And map total_quantity to sum of ss_quantity
+    And map total_sales to sum of ss_ext_sales_price
+    And map total_profit to sum of ss_net_profit
+    And map avg_unit_price to average of ss_sales_price
+    And map transaction_count to count of distinct ss_ticket_number
 
   Scenario: Combine all channel data
-    Given transformed store sales data
-    And transformed catalog sales data  
-    And transformed web sales data
-    When combining all channel datasets using union operation
-    Then group by sale_date, year, quarter, channel_type, channel_id, channel_name, item_category, item_brand
-    And aggregate all numeric measures by summing values
-    And recalculate average_sale_price as total_sales_amount divided by total_quantity
+    Given catalog sales summary, web sales summary, and store sales summary
+    When creating final sales channel summary
+    Then union all three channel datasets
+    And group by sale_date, channel_type, channel_name, channel_company, item_category, item_brand
+    And aggregate all numeric measures by summing total_quantity, total_sales, total_profit, transaction_count
+    And calculate avg_unit_price as total_sales divided by total_quantity
+    And filter out records where total_sales is null or zero
+    And order by sale_date descending, total_sales descending
