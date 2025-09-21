@@ -1,93 +1,84 @@
 Feature: sales_summary_by_channel
+  As a business analyst
+  I want to create a sales summary dataset
+  So that I can analyze sale patterns across different channels
 
-Background:
-  Given source tables with the following schemas:
-    | table_name    | column_name           | data_type    |
-    | store_sales   | ss_sold_date_sk       | NUMBER       |
-    | store_sales   | ss_item_sk            | NUMBER       |
-    | store_sales   | ss_quantity           | NUMBER       |
-    | store_sales   | ss_ext_sales_price    | NUMBER       |
-    | store_sales   | ss_net_profit         | NUMBER       |
-    | web_sales     | ws_sold_date_sk       | NUMBER       |
-    | web_sales     | ws_item_sk            | NUMBER       |
-    | web_sales     | ws_quantity           | NUMBER       |
-    | web_sales     | ws_ext_sales_price    | NUMBER       |
-    | web_sales     | ws_net_profit         | NUMBER       |
-    | catalog_sales | cs_sold_date_sk       | NUMBER       |
-    | catalog_sales | cs_item_sk            | NUMBER       |
-    | catalog_sales | cs_quantity           | NUMBER       |
-    | catalog_sales | cs_ext_sales_price    | NUMBER       |
-    | catalog_sales | cs_net_profit         | NUMBER       |
-    | date_dim      | d_date_sk             | NUMBER       |
-    | date_dim      | d_date                | DATE         |
-    | date_dim      | d_year                | NUMBER       |
-    | date_dim      | d_moy                 | NUMBER       |
-    | date_dim      | d_quarter_name        | STRING       |
-    | item          | i_item_sk             | NUMBER       |
-    | item          | i_category            | STRING       |
-    | item          | i_brand               | STRING       |
-    | item          | i_product_name        | STRING       |
+  Background:
+    Given the following source tables:
+      | table_name    | columns |
+      | store_sales   | ss_sold_date_sk:NUMBER, ss_item_sk:NUMBER, ss_quantity:NUMBER, ss_sales_price:NUMBER, ss_ext_sales_price:NUMBER, ss_net_paid:NUMBER, ss_net_profit:NUMBER |
+      | web_sales     | ws_sold_date_sk:NUMBER, ws_item_sk:NUMBER, ws_quantity:NUMBER, ws_sales_price:NUMBER, ws_ext_sales_price:NUMBER, ws_net_paid:NUMBER, ws_net_profit:NUMBER |
+      | catalog_sales | cs_sold_date_sk:NUMBER, cs_item_sk:NUMBER, cs_quantity:NUMBER, cs_sales_price:NUMBER, cs_ext_sales_price:NUMBER, cs_net_paid:NUMBER, cs_net_profit:NUMBER |
+      | date_dim      | d_date_sk:NUMBER, d_date:DATE, d_year:NUMBER, d_moy:NUMBER, d_qoy:NUMBER, d_day_name:STRING, d_quarter_name:STRING |
+      | item          | i_item_sk:NUMBER, i_item_id:STRING, i_brand:STRING, i_class:STRING, i_category:STRING, i_product_name:STRING |
 
-  And target table schema:
-    | table_name           | column_name        | data_type |
-    | sales_summary        | sale_date          | DATE      |
-    | sales_summary        | year               | NUMBER    |
-    | sales_summary        | month              | NUMBER    |
-    | sales_summary        | quarter            | STRING    |
-    | sales_summary        | channel            | STRING    |
-    | sales_summary        | item_category      | STRING    |
-    | sales_summary        | item_brand         | STRING    |
-    | sales_summary        | total_quantity     | NUMBER    |
-    | sales_summary        | total_sales_amount | NUMBER    |
-    | sales_summary        | total_profit       | NUMBER    |
-    | sales_summary        | transaction_count  | NUMBER    |
+    And the target table schema:
+      | table_name              | columns |
+      | sales_summary_by_channel | channel:STRING, sale_date:DATE, year:NUMBER, month:NUMBER, quarter:NUMBER, item_id:STRING, brand:STRING, category:STRING, product_name:STRING, total_quantity:NUMBER, total_sales:NUMBER, total_net_paid:NUMBER, total_net_profit:NUMBER, transaction_count:NUMBER |
 
-Scenario: Create sales summary dataset across all channels
-  Given store sales data joined with date dimension on sold date key equals date key
-  And store sales data joined with item dimension on item key equals item key
-  And web sales data joined with date dimension on sold date key equals date key
-  And web sales data joined with item dimension on item key equals item key
-  And catalog sales data joined with date dimension on sold date key equals date key
-  And catalog sales data joined with item dimension on item key equals item key
-  
-  When transforming store sales data
-  Then map date dimension date to sale date
-  And map date dimension year to year
-  And map date dimension month of year to month
-  And map date dimension quarter name to quarter
-  And map literal value store to channel
-  And map item category to item category
-  And map item brand to item brand
-  And sum store sales quantity to total quantity
-  And sum store sales extended sales price to total sales amount
-  And sum store sales net profit to total profit
-  And count distinct store sales records to transaction count
-  
-  When transforming web sales data
-  Then map date dimension date to sale date
-  And map date dimension year to year
-  And map date dimension month of year to month
-  And map date dimension quarter name to quarter
-  And map literal value web to channel
-  And map item category to item category
-  And map item brand to item brand
-  And sum web sales quantity to total quantity
-  And sum web sales extended sales price to total sales amount
-  And sum web sales net profit to total profit
-  And count distinct web sales records to transaction count
-  
-  When transforming catalog sales data
-  Then map date dimension date to sale date
-  And map date dimension year to year
-  And map date dimension month of year to month
-  And map date dimension quarter name to quarter
-  And map literal value catalog to channel
-  And map item category to item category
-  And map item brand to item brand
-  And sum catalog sales quantity to total quantity
-  And sum catalog sales extended sales price to total sales amount
-  And sum catalog sales net profit to total profit
-  And count distinct catalog sales records to transaction count
-  
-  And union all channel data into single sales summary dataset
-  And group by sale date, year, month, quarter, channel, item category, and item brand
+  Scenario: Extract and transform store sales data
+    Given store sales records from store_sales table
+    When I join store_sales with date_dim on ss_sold_date_sk equals d_date_sk
+    And I join the result with item on ss_item_sk equals i_item_sk
+    Then I transform the data by setting channel to 'Store'
+    And I extract sale_date from d_date
+    And I extract year from d_year
+    And I extract month from d_moy
+    And I extract quarter from d_qoy
+    And I extract item_id from i_item_id
+    And I extract brand from i_brand
+    And I extract category from i_category
+    And I extract product_name from i_product_name
+    And I aggregate total_quantity by summing ss_quantity
+    And I aggregate total_sales by summing ss_ext_sales_price
+    And I aggregate total_net_paid by summing ss_net_paid
+    And I aggregate total_net_profit by summing ss_net_profit
+    And I count transaction_count as number of records
+    And I group by channel, sale_date, year, month, quarter, item_id, brand, category, product_name
+
+  Scenario: Extract and transform web sales data
+    Given web sales records from web_sales table
+    When I join web_sales with date_dim on ws_sold_date_sk equals d_date_sk
+    And I join the result with item on ws_item_sk equals i_item_sk
+    Then I transform the data by setting channel to 'Web'
+    And I extract sale_date from d_date
+    And I extract year from d_year
+    And I extract month from d_moy
+    And I extract quarter from d_qoy
+    And I extract item_id from i_item_id
+    And I extract brand from i_brand
+    And I extract category from i_category
+    And I extract product_name from i_product_name
+    And I aggregate total_quantity by summing ws_quantity
+    And I aggregate total_sales by summing ws_ext_sales_price
+    And I aggregate total_net_paid by summing ws_net_paid
+    And I aggregate total_net_profit by summing ws_net_profit
+    And I count transaction_count as number of records
+    And I group by channel, sale_date, year, month, quarter, item_id, brand, category, product_name
+
+  Scenario: Extract and transform catalog sales data
+    Given catalog sales records from catalog_sales table
+    When I join catalog_sales with date_dim on cs_sold_date_sk equals d_date_sk
+    And I join the result with item on cs_item_sk equals i_item_sk
+    Then I transform the data by setting channel to 'Catalog'
+    And I extract sale_date from d_date
+    And I extract year from d_year
+    And I extract month from d_moy
+    And I extract quarter from d_qoy
+    And I extract item_id from i_item_id
+    And I extract brand from i_brand
+    And I extract category from i_category
+    And I extract product_name from i_product_name
+    And I aggregate total_quantity by summing cs_quantity
+    And I aggregate total_sales by summing cs_ext_sales_price
+    And I aggregate total_net_paid by summing cs_net_paid
+    And I aggregate total_net_profit by summing cs_net_profit
+    And I count transaction_count as number of records
+    And I group by channel, sale_date, year, month, quarter, item_id, brand, category, product_name
+
+  Scenario: Combine all channel data
+    Given transformed store sales data
+    And transformed web sales data
+    And transformed catalog sales data
+    When I union all three datasets
+    Then I load the combined data into sales_summary_by_channel table
