@@ -1,98 +1,174 @@
 Feature: monthly_sales_analysis
   As a business analyst
-  I want to create a star schema for monthly sales analysis
-  So that I can analyze sales by item/month and sales by store/month
+  I want to analyze monthly sales performance
+  So that I can track sales by item and store over time
 
-  Background: Source Schema
-    Given the following source tables exist:
-      | table_name  | columns                                                                                                    |
-      | store_sales | ss_sold_date_sk:NUMBER, ss_item_sk:NUMBER, ss_store_sk:NUMBER, ss_quantity:NUMBER, ss_sales_price:NUMBER, ss_ext_sales_price:NUMBER, ss_net_paid:NUMBER |
-      | item        | i_item_sk:NUMBER, i_item_id:STRING, i_item_desc:STRING, i_brand:STRING, i_class:STRING, i_category:STRING, i_product_name:STRING |
-      | store       | s_store_sk:NUMBER, s_store_id:STRING, s_store_name:STRING, s_city:STRING, s_state:STRING, s_market_desc:STRING |
-      | date_dim    | d_date_sk:NUMBER, d_date:DATE, d_year:NUMBER, d_moy:NUMBER, d_month_seq:NUMBER |
+  Background: Source Tables Schema
+    Given source table "store_sales" with columns:
+      | column_name           | data_type |
+      | ss_sold_date_sk       | NUMBER    |
+      | ss_item_sk            | NUMBER    |
+      | ss_store_sk           | NUMBER    |
+      | ss_quantity           | NUMBER    |
+      | ss_sales_price        | NUMBER    |
+      | ss_ext_sales_price    | NUMBER    |
+      | ss_net_paid           | NUMBER    |
+      | ss_net_profit         | NUMBER    |
+    
+    And source table "item" with columns:
+      | column_name    | data_type |
+      | i_item_sk      | NUMBER    |
+      | i_item_id      | STRING    |
+      | i_item_desc    | STRING    |
+      | i_brand        | STRING    |
+      | i_class        | STRING    |
+      | i_category     | STRING    |
+      | i_product_name | STRING    |
+    
+    And source table "store" with columns:
+      | column_name      | data_type |
+      | s_store_sk       | NUMBER    |
+      | s_store_id       | STRING    |
+      | s_store_name     | STRING    |
+      | s_city           | STRING    |
+      | s_state          | STRING    |
+      | s_division_name  | STRING    |
+      | s_company_name   | STRING    |
+    
+    And source table "date_dim" with columns:
+      | column_name | data_type |
+      | d_date_sk   | NUMBER    |
+      | d_date      | DATE      |
+      | d_year      | NUMBER    |
+      | d_moy       | NUMBER    |
+      | d_month_seq | NUMBER    |
 
   Scenario: Create fact table for monthly sales
-    Given I have access to store_sales as the main fact source
-    When I create the fact_monthly_sales table
-    Then the target schema should be:
-      | column_name        | data_type | description |
-      | date_key          | NUMBER    | Foreign key to date dimension |
-      | item_key          | NUMBER    | Foreign key to item dimension |
-      | store_key         | NUMBER    | Foreign key to store dimension |
-      | year_month        | STRING    | Year and month in YYYY-MM format |
-      | total_quantity    | NUMBER    | Sum of quantities sold |
-      | total_sales       | NUMBER    | Sum of extended sales price |
-      | total_net_paid    | NUMBER    | Sum of net paid amount |
-      | avg_sales_price   | NUMBER    | Average sales price |
-    And the data should be aggregated by joining store_sales with date_dim on ss_sold_date_sk equals d_date_sk
-    And group the results by d_year, d_moy, ss_item_sk, and ss_store_sk
-    And calculate sum of ss_quantity as total_quantity
-    And calculate sum of ss_ext_sales_price as total_sales  
-    And calculate sum of ss_net_paid as total_net_paid
-    And calculate average of ss_sales_price as avg_sales_price
-    And create year_month by concatenating d_year and d_moy with hyphen separator
+    Given target table "fact_monthly_sales" with columns:
+      | column_name          | data_type |
+      | date_key            | NUMBER    |
+      | item_key            | NUMBER    |
+      | store_key           | NUMBER    |
+      | year                | NUMBER    |
+      | month               | NUMBER    |
+      | month_sequence      | NUMBER    |
+      | total_quantity      | NUMBER    |
+      | total_sales_amount  | NUMBER    |
+      | total_net_paid      | NUMBER    |
+      | total_net_profit    | NUMBER    |
+      | transaction_count   | NUMBER    |
+    
+    When I join "store_sales" with "date_dim" on store_sales.ss_sold_date_sk equals date_dim.d_date_sk
+    Then I map date_key as d_date_sk
+    And I map item_key as ss_item_sk
+    And I map store_key as ss_store_sk
+    And I map year as d_year
+    And I map month as d_moy
+    And I map month_sequence as d_month_seq
+    And I map total_quantity as sum of ss_quantity grouped by year, month, item_key, store_key
+    And I map total_sales_amount as sum of ss_ext_sales_price grouped by year, month, item_key, store_key
+    And I map total_net_paid as sum of ss_net_paid grouped by year, month, item_key, store_key
+    And I map total_net_profit as sum of ss_net_profit grouped by year, month, item_key, store_key
+    And I map transaction_count as count of distinct ss_ticket_number grouped by year, month, item_key, store_key
 
-  Scenario: Create item dimension
-    Given I have access to item table
-    When I create the dim_item table
-    Then the target schema should be:
-      | column_name     | data_type | description |
-      | item_key       | NUMBER    | Primary key from source |
-      | item_id        | STRING    | Item identifier |
-      | item_desc      | STRING    | Item description |
-      | brand          | STRING    | Item brand |
-      | class          | STRING    | Item class |
-      | category       | STRING    | Item category |
-      | product_name   | STRING    | Product name |
-    And select i_item_sk as item_key
-    And select i_item_id as item_id
-    And select i_item_desc as item_desc
-    And select i_brand as brand
-    And select i_class as class
-    And select i_category as category
-    And select i_product_name as product_name
+  Scenario: Create item dimension table
+    Given target table "dim_item" with columns:
+      | column_name    | data_type |
+      | item_key       | NUMBER    |
+      | item_id        | STRING    |
+      | item_name      | STRING    |
+      | item_description | STRING  |
+      | brand_name     | STRING    |
+      | class_name     | STRING    |
+      | category_name  | STRING    |
+    
+    When I select from "item"
+    Then I map item_key as i_item_sk
+    And I map item_id as i_item_id
+    And I map item_name as i_product_name
+    And I map item_description as i_item_desc
+    And I map brand_name as i_brand
+    And I map class_name as i_class
+    And I map category_name as i_category
 
-  Scenario: Create store dimension
-    Given I have access to store table
-    When I create the dim_store table
-    Then the target schema should be:
-      | column_name    | data_type | description |
-      | store_key     | NUMBER    | Primary key from source |
-      | store_id      | STRING    | Store identifier |
-      | store_name    | STRING    | Store name |
-      | city          | STRING    | Store city |
-      | state         | STRING    | Store state |
-      | market_desc   | STRING    | Market description |
-    And select s_store_sk as store_key
-    And select s_store_id as store_id
-    And select s_store_name as store_name
-    And select s_city as city
-    And select s_state as state
-    And select s_market_desc as market_desc
+  Scenario: Create store dimension table
+    Given target table "dim_store" with columns:
+      | column_name      | data_type |
+      | store_key        | NUMBER    |
+      | store_id         | STRING    |
+      | store_name       | STRING    |
+      | city             | STRING    |
+      | state            | STRING    |
+      | division_name    | STRING    |
+      | company_name     | STRING    |
+    
+    When I select from "store"
+    Then I map store_key as s_store_sk
+    And I map store_id as s_store_id
+    And I map store_name as s_store_name
+    And I map city as s_city
+    And I map state as s_state
+    And I map division_name as s_division_name
+    And I map company_name as s_company_name
 
-  Scenario: Create date dimension
-    Given I have access to date_dim table
-    When I create the dim_date table
-    Then the target schema should be:
-      | column_name   | data_type | description |
-      | date_key     | NUMBER    | Primary key from source |
-      | calendar_date| DATE      | Calendar date |
-      | year         | NUMBER    | Year |
-      | month        | NUMBER    | Month of year |
-      | month_seq    | NUMBER    | Month sequence |
-      | year_month   | STRING    | Year and month in YYYY-MM format |
-    And select d_date_sk as date_key
-    And select d_date as calendar_date
-    And select d_year as year
-    And select d_moy as month
-    And select d_month_seq as month_seq
-    And create year_month by concatenating d_year and d_moy with hyphen separator
+  Scenario: Create date dimension table
+    Given target table "dim_date" with columns:
+      | column_name     | data_type |
+      | date_key        | NUMBER    |
+      | calendar_date   | DATE      |
+      | year            | NUMBER    |
+      | month           | NUMBER    |
+      | month_sequence  | NUMBER    |
+    
+    When I select from "date_dim"
+    Then I map date_key as d_date_sk
+    And I map calendar_date as d_date
+    And I map year as d_year
+    And I map month as d_moy
+    And I map month_sequence as d_month_seq
 
-  Scenario: Define relationships for star schema
-    Given the fact table fact_monthly_sales exists
-    And the dimension tables dim_item, dim_store, and dim_date exist
-    Then establish the following relationships:
-      | fact_table        | fact_column | dimension_table | dimension_column |
-      | fact_monthly_sales| item_key    | dim_item       | item_key        |
-      | fact_monthly_sales| store_key   | dim_store      | store_key       |
-      | fact_monthly_sales| date_key    | dim_date       | date_key        |
+  Scenario: Create aggregated view for sales by item and month
+    Given target view "sales_by_item_month" with columns:
+      | column_name         | data_type |
+      | year                | NUMBER    |
+      | month               | NUMBER    |
+      | item_name           | STRING    |
+      | brand_name          | STRING    |
+      | category_name       | STRING    |
+      | total_sales_amount  | NUMBER    |
+      | total_quantity      | NUMBER    |
+      | total_net_profit    | NUMBER    |
+    
+    When I join "fact_monthly_sales" with "dim_item" on fact_monthly_sales.item_key equals dim_item.item_key
+    Then I map year as fact_monthly_sales.year
+    And I map month as fact_monthly_sales.month
+    And I map item_name as dim_item.item_name
+    And I map brand_name as dim_item.brand_name
+    And I map category_name as dim_item.category_name
+    And I map total_sales_amount as sum of fact_monthly_sales.total_sales_amount grouped by year, month, item_name, brand_name, category_name
+    And I map total_quantity as sum of fact_monthly_sales.total_quantity grouped by year, month, item_name, brand_name, category_name
+    And I map total_net_profit as sum of fact_monthly_sales.total_net_profit grouped by year, month, item_name, brand_name, category_name
+
+  Scenario: Create aggregated view for sales by store and month
+    Given target view "sales_by_store_month" with columns:
+      | column_name         | data_type |
+      | year                | NUMBER    |
+      | month               | NUMBER    |
+      | store_name          | STRING    |
+      | city                | STRING    |
+      | state               | STRING    |
+      | division_name       | STRING    |
+      | total_sales_amount  | NUMBER    |
+      | total_quantity      | NUMBER    |
+      | total_net_profit    | NUMBER    |
+    
+    When I join "fact_monthly_sales" with "dim_store" on fact_monthly_sales.store_key equals dim_store.store_key
+    Then I map year as fact_monthly_sales.year
+    And I map month as fact_monthly_sales.month
+    And I map store_name as dim_store.store_name
+    And I map city as dim_store.city
+    And I map state as dim_store.state
+    And I map division_name as dim_store.division_name
+    And I map total_sales_amount as sum of fact_monthly_sales.total_sales_amount grouped by year, month, store_name, city, state, division_name
+    And I map total_quantity as sum of fact_monthly_sales.total_quantity grouped by year, month, store_name, city, state, division_name
+    And I map total_net_profit as sum of fact_monthly_sales.total_net_profit grouped by year, month, store_name, city, state, division_name
