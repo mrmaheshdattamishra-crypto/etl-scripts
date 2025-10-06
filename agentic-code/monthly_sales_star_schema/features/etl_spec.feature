@@ -1,112 +1,94 @@
-# Referenced similar ticket SCRUM-9 with identical requirements for monthly sales star schema
-# Leveraging proven pattern for sales by item/month and sales by store/month KPIs
+# Referenced similar ticket SCRUM-9 for monthly sales analysis patterns
+# Data Product: monthly_sales_star_schema
 
-Feature: monthly_sales_star_schema
+Feature: Monthly Sales Star Schema
   As a business analyst
-  I want to analyze monthly sales data through a star schema
+  I want to analyze monthly sales data
   So that I can track sales performance by item and store on a monthly basis
 
-  Background: Source and target schema definitions
-    Given the source tables with schema:
-      | table_name  | column_name         | data_type    |
-      | store_sales | ss_sold_date_sk     | NUMBER       |
-      | store_sales | ss_item_sk          | NUMBER       |
-      | store_sales | ss_store_sk         | NUMBER       |
-      | store_sales | ss_quantity         | NUMBER       |
-      | store_sales | ss_sales_price      | NUMBER       |
-      | store_sales | ss_ext_sales_price  | NUMBER       |
-      | store_sales | ss_net_paid         | NUMBER       |
-      | item        | i_item_sk           | NUMBER       |
-      | item        | i_item_id           | STRING       |
-      | item        | i_item_desc         | STRING       |
-      | item        | i_brand             | STRING       |
-      | item        | i_category          | STRING       |
-      | item        | i_product_name      | STRING       |
-      | store       | s_store_sk          | NUMBER       |
-      | store       | s_store_id          | STRING       |
-      | store       | s_store_name        | STRING       |
-      | store       | s_city              | STRING       |
-      | store       | s_state             | STRING       |
-      | date_dim    | d_date_sk           | NUMBER       |
-      | date_dim    | d_date              | DATE         |
-      | date_dim    | d_year              | NUMBER       |
-      | date_dim    | d_moy               | NUMBER       |
-      | date_dim    | d_month_seq         | NUMBER       |
-    
-    And the target fact table with schema:
-      | table_name           | column_name      | data_type |
-      | fact_monthly_sales   | date_key         | NUMBER    |
-      | fact_monthly_sales   | item_key         | NUMBER    |
-      | fact_monthly_sales   | store_key        | NUMBER    |
-      | fact_monthly_sales   | sales_year       | NUMBER    |
-      | fact_monthly_sales   | sales_month      | NUMBER    |
-      | fact_monthly_sales   | total_quantity   | NUMBER    |
-      | fact_monthly_sales   | total_sales      | NUMBER    |
-      | fact_monthly_sales   | total_net_paid   | NUMBER    |
-      | fact_monthly_sales   | transaction_count| NUMBER    |
-    
-    And the target dimension tables with schema:
-      | table_name     | column_name    | data_type |
-      | dim_item       | item_key       | NUMBER    |
-      | dim_item       | item_id        | STRING    |
-      | dim_item       | item_name      | STRING    |
-      | dim_item       | brand          | STRING    |
-      | dim_item       | category       | STRING    |
-      | dim_store      | store_key      | NUMBER    |
-      | dim_store      | store_id       | STRING    |
-      | dim_store      | store_name     | STRING    |
-      | dim_store      | city           | STRING    |
-      | dim_store      | state          | STRING    |
-      | dim_date       | date_key       | NUMBER    |
-      | dim_date       | full_date      | DATE      |
-      | dim_date       | year           | NUMBER    |
-      | dim_date       | month          | NUMBER    |
-      | dim_date       | month_name     | STRING    |
+  Background:
+    Given the following source tables exist:
+      | table_name  | columns |
+      | store_sales | ss_sold_date_sk:NUMBER, ss_item_sk:NUMBER, ss_store_sk:NUMBER, ss_quantity:NUMBER, ss_sales_price:NUMBER, ss_ext_sales_price:NUMBER, ss_net_paid:NUMBER, ss_net_profit:NUMBER |
+      | item        | i_item_sk:NUMBER, i_item_id:STRING, i_item_desc:STRING, i_brand:STRING, i_class:STRING, i_category:STRING, i_product_name:STRING |
+      | store       | s_store_sk:NUMBER, s_store_id:STRING, s_store_name:STRING, s_city:STRING, s_state:STRING, s_country:STRING, s_market_desc:STRING, s_division_name:STRING, s_company_name:STRING |
+      | date_dim    | d_date_sk:NUMBER, d_date:DATE, d_year:NUMBER, d_moy:NUMBER, d_month_seq:NUMBER, d_quarter_name:STRING, d_day_name:STRING |
 
-  Scenario: Create item dimension table
-    Given source table item
-    When transforming data for dim_item
-    Then map item_key from i_item_sk
-    And map item_id from i_item_id
-    And map item_name from i_product_name
-    And map brand from i_brand
-    And map category from i_category
-    And filter out records where i_item_sk is null
+    And the following target tables will be created:
+      | table_name           | columns |
+      | fact_monthly_sales   | month_year_key:STRING, item_key:NUMBER, store_key:NUMBER, total_quantity:NUMBER, total_sales_amount:NUMBER, total_net_paid:NUMBER, total_net_profit:NUMBER, avg_sales_price:NUMBER, transaction_count:NUMBER |
+      | dim_item            | item_key:NUMBER, item_id:STRING, item_name:STRING, item_description:STRING, brand:STRING, class:STRING, category:STRING |
+      | dim_store           | store_key:NUMBER, store_id:STRING, store_name:STRING, city:STRING, state:STRING, country:STRING, market_description:STRING, division:STRING, company:STRING |
+      | dim_month           | month_year_key:STRING, year:NUMBER, month:NUMBER, month_name:STRING, quarter:STRING, month_sequence:NUMBER |
 
-  Scenario: Create store dimension table
-    Given source table store
-    When transforming data for dim_store
-    Then map store_key from s_store_sk
-    And map store_id from s_store_id
-    And map store_name from s_store_name
-    And map city from s_city
-    And map state from s_state
-    And filter out records where s_store_sk is null
+  Scenario: Create dimension table for items
+    Given I want to build dim_item table
+    When I extract data from item table
+    Then I should map the following fields:
+      | source_field    | target_field        | transformation |
+      | i_item_sk       | item_key           | direct mapping |
+      | i_item_id       | item_id            | direct mapping |
+      | i_product_name  | item_name          | direct mapping |
+      | i_item_desc     | item_description   | direct mapping |
+      | i_brand         | brand              | direct mapping |
+      | i_class         | class              | direct mapping |
+      | i_category      | category           | direct mapping |
 
-  Scenario: Create date dimension table
-    Given source table date_dim
-    When transforming data for dim_date
-    Then map date_key from d_date_sk
-    And map full_date from d_date
-    And map year from d_year
-    And map month from d_moy
-    And map month_name by converting d_moy to month name using case statement
-    And filter out records where d_date_sk is null
+  Scenario: Create dimension table for stores
+    Given I want to build dim_store table
+    When I extract data from store table
+    Then I should map the following fields:
+      | source_field     | target_field          | transformation |
+      | s_store_sk       | store_key            | direct mapping |
+      | s_store_id       | store_id             | direct mapping |
+      | s_store_name     | store_name           | direct mapping |
+      | s_city           | city                 | direct mapping |
+      | s_state          | state                | direct mapping |
+      | s_country        | country              | direct mapping |
+      | s_market_desc    | market_description   | direct mapping |
+      | s_division_name  | division             | direct mapping |
+      | s_company_name   | company              | direct mapping |
 
-  Scenario: Create monthly sales fact table
-    Given source tables store_sales, date_dim, item, and store
-    When joining tables for fact_monthly_sales
-    Then join store_sales to date_dim on ss_sold_date_sk equals d_date_sk
-    And join store_sales to item on ss_item_sk equals i_item_sk
-    And join store_sales to store on ss_store_sk equals s_store_sk
-    And group by d_date_sk, i_item_sk, s_store_sk, d_year, and d_moy
-    And map date_key from d_date_sk
-    And map item_key from i_item_sk
-    And map store_key from s_store_sk
-    And map sales_year from d_year
-    And map sales_month from d_moy
-    And map total_quantity by summing ss_quantity
-    And map total_sales by summing ss_ext_sales_price
-    And map total_net_paid by summing ss_net_paid
-    And map transaction_count by counting distinct ss_ticket_number
-    And filter out records where any key field is null
+  Scenario: Create dimension table for months
+    Given I want to build dim_month table
+    When I extract unique months from date_dim table
+    Then I should map the following fields:
+      | source_field     | target_field       | transformation |
+      | d_year, d_moy    | month_year_key     | concatenate year and zero-padded month with hyphen |
+      | d_year           | year               | direct mapping |
+      | d_moy            | month              | direct mapping |
+      | d_moy            | month_name         | convert month number to month name |
+      | d_quarter_name   | quarter            | direct mapping |
+      | d_month_seq      | month_sequence     | direct mapping |
+
+  Scenario: Create fact table for monthly sales
+    Given I want to build fact_monthly_sales table
+    When I join store_sales with date_dim on ss_sold_date_sk equals d_date_sk
+    And I group by year, month, item_sk, and store_sk
+    Then I should map the following fields:
+      | source_field           | target_field         | transformation |
+      | d_year, d_moy          | month_year_key       | concatenate year and zero-padded month with hyphen |
+      | ss_item_sk             | item_key             | direct mapping |
+      | ss_store_sk            | store_key            | direct mapping |
+      | ss_quantity            | total_quantity       | sum all quantities for the month |
+      | ss_ext_sales_price     | total_sales_amount   | sum all extended sales prices for the month |
+      | ss_net_paid            | total_net_paid       | sum all net paid amounts for the month |
+      | ss_net_profit          | total_net_profit     | sum all net profits for the month |
+      | ss_sales_price         | avg_sales_price      | calculate average sales price for the month |
+      | ss_ticket_number       | transaction_count    | count distinct transactions for the month |
+
+  Scenario: Support KPI - Sales by item per month
+    Given fact_monthly_sales table exists
+    And dim_item table exists
+    And dim_month table exists
+    When I join fact_monthly_sales with dim_item on item_key
+    And I join with dim_month on month_year_key
+    Then I can analyze total_sales_amount by item_name and month_year_key
+
+  Scenario: Support KPI - Sales by store per month
+    Given fact_monthly_sales table exists
+    And dim_store table exists
+    And dim_month table exists
+    When I join fact_monthly_sales with dim_store on store_key
+    And I join with dim_month on month_year_key
+    Then I can analyze total_sales_amount by store_name and month_year_key
