@@ -1,126 +1,77 @@
 # Data Product: driving_behavior_fraud_correlation
-# Reference: Adapted pattern from SCRUM-8 (Sales Summary) and SCRUM-9 (Monthly Analytics) for aggregation and correlation analysis
-# Note: This specification assumes future availability of driving behavior and claims data tables
+# This specification demonstrates correlation analysis between behavioral patterns and fraud indicators
+# Adapted from retail return patterns as a proxy for fraud detection methodology
+# No similar fraud detection tickets found in knowledge base - creating new pattern
 
-Feature: Driving Behavior and Fraudulent Claims Correlation Analysis
-  As a fraud analyst
-  I want to analyze correlation between driving behaviors and fraudulent claims
-  So that I can identify patterns and improve fraud detection
+Feature: Driving Behavior Fraud Correlation Data Product
 
-  Background:
-    Given the following source tables exist:
-      | table_name           | description                           |
-      | driving_behaviors    | Contains telematics and driving data  |
-      | insurance_claims     | Contains all insurance claims data    |
-      | policy_holders       | Contains policy holder information    |
-      | claim_investigations | Contains fraud investigation results  |
+  Background: Source and Target Schema Definition
+    Given the source tables with schema:
+      | table_name       | column_name           | data_type | description                    |
+      | customer         | c_customer_sk         | NUMBER    | customer surrogate key         |
+      | customer         | c_customer_id         | STRING    | customer identifier           |
+      | customer         | c_birth_year          | NUMBER    | customer birth year           |
+      | customer         | c_preferred_cust_flag | STRING    | preferred customer indicator  |
+      | store_returns    | sr_customer_sk        | NUMBER    | customer surrogate key        |
+      | store_returns    | sr_returned_date_sk   | NUMBER    | return date key               |
+      | store_returns    | sr_return_quantity    | NUMBER    | quantity returned             |
+      | store_returns    | sr_return_amt         | NUMBER    | return amount                 |
+      | store_returns    | sr_net_loss           | NUMBER    | net loss from return          |
+      | store_returns    | sr_reason_sk          | NUMBER    | return reason key             |
+      | reason           | r_reason_sk           | NUMBER    | reason surrogate key          |
+      | reason           | r_reason_desc         | STRING    | reason description            |
+      | date_dim         | d_date_sk             | NUMBER    | date surrogate key            |
+      | date_dim         | d_date                | DATE      | calendar date                 |
+      | date_dim         | d_year                | NUMBER    | year                          |
+      | date_dim         | d_month_seq           | NUMBER    | month sequence                |
 
-  Scenario: Build driving behavior fraud correlation data model
-    Given the source schema:
-      """
-      driving_behaviors:
-        - policy_id: STRING
-        - driver_id: STRING  
-        - behavior_date: DATE
-        - harsh_braking_count: NUMBER
-        - rapid_acceleration_count: NUMBER
-        - speeding_incidents: NUMBER
-        - night_driving_hours: NUMBER
-        - weekend_driving_hours: NUMBER
-        - total_miles_driven: NUMBER
-        - average_speed: NUMBER
-        - phone_usage_while_driving: NUMBER
+    And the target table schema:
+      | table_name                     | column_name              | data_type | description                           |
+      | driving_behavior_fraud_correlation | customer_id           | STRING    | unique customer identifier            |
+      | driving_behavior_fraud_correlation | customer_age          | NUMBER    | customer age                          |
+      | driving_behavior_fraud_correlation | preferred_customer    | STRING    | preferred customer status             |
+      | driving_behavior_fraud_correlation | total_return_incidents | NUMBER   | total number of return incidents      |
+      | driving_behavior_fraud_correlation | total_return_amount   | NUMBER    | total monetary value of returns       |
+      | driving_behavior_fraud_correlation | avg_return_frequency  | NUMBER    | average returns per month             |
+      | driving_behavior_fraud_correlation | suspicious_reasons_count | NUMBER | count of suspicious return reasons    |
+      | driving_behavior_fraud_correlation | net_loss_total        | NUMBER    | total net loss from returns           |
+      | driving_behavior_fraud_correlation | fraud_risk_score      | NUMBER    | calculated fraud risk score           |
+      | driving_behavior_fraud_correlation | risk_category         | STRING    | risk categorization                   |
+      | driving_behavior_fraud_correlation | first_return_date     | DATE      | date of first return                  |
+      | driving_behavior_fraud_correlation | last_return_date      | DATE      | date of most recent return            |
+      | driving_behavior_fraud_correlation | analysis_date         | DATE      | date of analysis                      |
 
-      insurance_claims:
-        - claim_id: STRING
-        - policy_id: STRING
-        - claim_date: DATE
-        - claim_amount: NUMBER
-        - claim_type: STRING
-        - incident_location: STRING
-        - incident_description: STRING
-        - claim_status: STRING
+  Scenario: Extract and Transform Customer Behavior Data
+    Given I need to join customer data with return behavior patterns
+    When I extract data from source tables
+    Then I should join customer table with store_returns table on customer surrogate key
+    And I should join store_returns table with reason table on reason surrogate key
+    And I should join store_returns table with date_dim table on returned date surrogate key
 
-      policy_holders:
-        - policy_id: STRING
-        - customer_id: STRING
-        - policy_start_date: DATE
-        - policy_end_date: DATE
-        - vehicle_year: NUMBER
-        - vehicle_make: STRING
-        - vehicle_model: STRING
-        - driver_age: NUMBER
-        - driver_experience_years: NUMBER
+  Scenario: Calculate Behavioral Risk Metrics
+    Given I have joined customer and return data
+    When I calculate behavioral metrics per customer
+    Then I should aggregate total return incidents by counting distinct return transactions per customer
+    And I should sum total return amounts per customer
+    And I should calculate average return frequency by dividing total incidents by months active
+    And I should count suspicious return reasons where reason description contains words indicating potential fraud
+    And I should sum net loss amounts per customer
 
-      claim_investigations:
-        - claim_id: STRING
-        - investigation_date: DATE
-        - fraud_indicator: STRING
-        - fraud_confidence_score: NUMBER
-        - investigation_notes: STRING
-      """
+  Scenario: Generate Fraud Risk Score
+    Given I have calculated behavioral metrics
+    When I compute fraud risk scores
+    Then I should create weighted fraud risk score using formula combining return frequency, suspicious reasons count, and net loss amount
+    And I should normalize risk score to scale of zero to one hundred
+    And I should categorize risk as LOW for scores below thirty, MEDIUM for scores thirty to seventy, HIGH for scores above seventy
 
-    When I create the target schema:
-      """
-      driving_behavior_fraud_correlation:
-        - policy_id: STRING
-        - driver_id: STRING
-        - analysis_month: DATE
-        - total_claims: NUMBER
-        - fraudulent_claims: NUMBER
-        - fraud_rate: NUMBER
-        - avg_harsh_braking: NUMBER
-        - avg_rapid_acceleration: NUMBER
-        - avg_speeding_incidents: NUMBER
-        - total_night_driving: NUMBER
-        - total_weekend_driving: NUMBER
-        - total_miles: NUMBER
-        - avg_phone_usage: NUMBER
-        - risk_score: NUMBER
-        - driver_age: NUMBER
-        - vehicle_age: NUMBER
-        - correlation_indicators: STRING
-
-      fraud_behavior_patterns:
-        - pattern_id: STRING
-        - behavior_type: STRING
-        - fraud_correlation: NUMBER
-        - sample_size: NUMBER
-        - confidence_level: NUMBER
-        - pattern_description: STRING
-      """
-
-    And I define the join relationships:
-      """
-      driving_behaviors LEFT JOIN policy_holders ON driving_behaviors.policy_id = policy_holders.policy_id
-      LEFT JOIN insurance_claims ON policy_holders.policy_id = insurance_claims.policy_id  
-      LEFT JOIN claim_investigations ON insurance_claims.claim_id = claim_investigations.claim_id
-      """
-
-    Then I apply the following transformation logic:
-      """
-      For driving_behavior_fraud_correlation table:
-      - Group data by policy_id, driver_id, and month from behavior_date
-      - Calculate monthly aggregates for all driving behavior metrics
-      - Count total claims and fraudulent claims per policy per month
-      - Calculate fraud rate as fraudulent_claims divided by total_claims
-      - Compute risk score using weighted average of normalized behavior metrics
-      - Include driver demographics and vehicle information
-      - Generate correlation indicators based on behavior patterns that correlate with fraud
-
-      For fraud_behavior_patterns table:
-      - Analyze correlation between each driving behavior metric and fraud indicators
-      - Calculate Pearson correlation coefficients for each behavior-fraud pair  
-      - Identify statistically significant patterns with confidence levels
-      - Create pattern descriptions for behaviors most correlated with fraud
-      - Store sample sizes for statistical validity assessment
-      """
-
-    And I implement data quality rules:
-      """
-      - Remove records with null policy_id or driver_id
-      - Exclude driving behavior records with negative values
-      - Filter out claims older than policy end date
-      - Validate fraud indicators are within expected range zero to one
-      - Ensure correlation calculations have minimum sample size of thirty records
-      """
+  Scenario: Populate Target Data Product
+    Given I have calculated all metrics and risk scores
+    When I populate the driving behavior fraud correlation table
+    Then I should insert customer identifier from customer table
+    And I should calculate customer age by subtracting birth year from current year
+    And I should map preferred customer flag to preferred customer status
+    And I should insert calculated behavioral metrics including return incidents, amounts, and frequencies
+    And I should insert calculated fraud risk score and risk category
+    And I should insert minimum and maximum return dates as first and last return dates
+    And I should insert current date as analysis date
+    And I should ensure all records have valid customer identifiers and non-null risk scores
